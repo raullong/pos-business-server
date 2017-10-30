@@ -14,9 +14,6 @@ class UserEntity : User() {
     @Id
     var id: String? = null
 
-    // 用户类型
-    var userType: UserTypeEntity? = null
-
     // 用户token
     var token: String? = null
 }

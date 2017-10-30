@@ -63,6 +63,7 @@ class MerchantService {
 
         entity.uuid = UUID.randomUUID().toString()
         entity.createUserUUID = user.uuid
+        entity.createTime = Date()
 
         mongoTemplate.insert(entity)
     }

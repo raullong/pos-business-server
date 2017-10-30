@@ -41,10 +41,6 @@ class UserService {
         entity.password = if (user.password.isNullOrEmpty()) passwordEncoder.encode("123456") else passwordEncoder.encode(user.password)
         entity.createTime = Date()
         entity.status = 1
-        entity.userType = mongoTemplate.findOne(Query.query(Criteria("key").`is`(user.type)), UserTypeEntity::class.java).apply {
-            id = null
-            status = null
-        }
 
         mongoTemplate.insert(entity)
 
@@ -75,7 +71,12 @@ class UserService {
         val totalSize = mongoTemplate.count(query, UserEntity::class.java)
         val totalPage = Math.ceil((totalSize / size.toDouble())).toInt()
 
-        val list = mongoTemplate.find(query.skip((page - 1) * size).limit(size), UserEntity::class.java)
+        val resp = mongoTemplate.find(query.skip((page - 1) * size).limit(size), UserEntity::class.java)
+        val list = resp.map {
+            val temp = utils.copy(it, UserResponse::class.java)
+            temp.userType = mongoTemplate.findOne(Query.query(Criteria("key").`is`(it.type)), UserTypeEntity::class.java)
+            temp
+        }
 
         return Page(list, page, size, totalPage, totalSize)
     }
@@ -97,10 +98,6 @@ class UserService {
         if (user.type != entity.type) {
             if (mongoTemplate.exists(Query.query(Criteria("mobile").`is`(user.mobile).and("type").`is`(user.type)), UserEntity::class.java)) throw AppException("用户已存在")
             entity.type = user.type
-            entity.userType = mongoTemplate.findOne(Query.query(Criteria("key").`is`(user.type)), UserTypeEntity::class.java).apply {
-                id = null
-                status = null
-            }
         }
 
         entity.username = user.username
