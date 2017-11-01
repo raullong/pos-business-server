@@ -95,11 +95,14 @@ class UserService {
 
         val entity = mongoTemplate.findOne(Query.query(Criteria("uuid").`is`(user.uuid)), UserEntity::class.java)
 
-        if (user.type != entity.type) {
-            if (mongoTemplate.exists(Query.query(Criteria("mobile").`is`(user.mobile).and("type").`is`(user.type)), UserEntity::class.java)) throw AppException("用户已存在")
-            entity.type = user.type
-        }
+        val type = user.type ?: entity.type
+        val mobile = user.mobile ?: entity.mobile
 
+        val temp = mongoTemplate.findOne(Query.query(Criteria("mobile").`is`(mobile).and("type").`is`(type)), UserEntity::class.java)
+        if (temp != null && temp.uuid != entity.uuid) throw AppException("用户已存在")
+
+        entity.mobile = mobile
+        entity.type = type
         entity.username = user.username
         entity.nickname = user.nickname
         entity.status = user.status
