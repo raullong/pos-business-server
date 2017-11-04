@@ -38,9 +38,11 @@ class UserService {
         if (mongoTemplate.exists(Query.query(Criteria("mobile").`is`(user.mobile).and("type").`is`(user.type)), UserEntity::class.java)) throw AppException("用户已存在")
 
         entity.uuid = UUID.randomUUID().toString()
-        entity.password = if (user.password.isNullOrEmpty()) passwordEncoder.encode("123456") else passwordEncoder.encode(user.password)
+        val md5Password = if (user.password.isNullOrEmpty()) utils.md5("123456") else utils.md5(user.password!!)
+        entity.password = passwordEncoder.encode(md5Password)
         entity.createTime = Date()
         entity.status = 1
+        entity.superStar = 0
 
         mongoTemplate.insert(entity)
 
@@ -61,6 +63,7 @@ class UserService {
 
         if (!params["status"].isNullOrEmpty()) criteria.and("status").`in`(params["status"]!!.split(",").map(String::toInt))
         if (!params["type"].isNullOrEmpty()) criteria.and("type").`in`(params["type"]!!.split(",").map(String::toInt))
+        if (!params["superStar"].isNullOrEmpty()) criteria.and("superStar").`in`(params["superStar"]!!.split(",").map(String::toInt))
 
         if (orList.isNotEmpty()) criteria.andOperator(Criteria().orOperator(*orList.toTypedArray()))
         val query = Query.query(criteria)
@@ -106,6 +109,7 @@ class UserService {
         entity.username = user.username
         entity.nickname = user.nickname
         entity.status = user.status
+        entity.superStar = user.superStar
 
         mongoTemplate.save(entity)
     }
@@ -128,4 +132,42 @@ class UserService {
 
         return user
     }
+
+
+    /**
+     * APP端相关应用接口
+     */
+
+    /**
+     * 用户登录
+     *
+     * @param username 用户名
+     * @param password 密码(需md5加密)
+     *
+     * @return String  用户token
+     */
+    fun appLogin(username: String, password: String): String {
+        val user = mongoTemplate.findOne(Query.query(Criteria("username").`is`(username).and("status").`is`(1)), UserEntity::class.java) ?: throw AppException("用户不存在")
+
+        if (!passwordEncoder.matches(password, user.password)) throw AppException("用户名或密码错误")
+
+        val token = UUID.randomUUID().toString()
+        user.token = token
+        mongoTemplate.save(user)
+
+        return token
+    }
+
+
+    fun superStar(): Any {
+        val query = Query.query(Criteria("status").`is`(1).and("superStar").`is`(1))
+        query.fields().exclude("id")
+                .exclude("createTime")
+                .exclude("lastTime")
+                .exclude("password")
+                .exclude("token")
+                .exclude("type")
+        return mongoTemplate.find(query, UserEntity::class.java)
+    }
+
 }

@@ -18,9 +18,18 @@ class NoteController {
 
 
     @PostMapping("/create")
-    fun save(@RequestBody params: Note, @SessionAttribute("user") user: User) = noteService.save(params, user)
+    fun create(@RequestBody params: Note, @SessionAttribute("user") user: User) = noteService.create(params, user)
 
     @GetMapping("/list")
-    fun list(@RequestParam params: Map<String, Any?>) = noteService.list(params)
+    fun list(@RequestParam params: Map<String, String?>) = noteService.list(params)
+
+    @GetMapping("/info/{uuid}")
+    fun info(@PathVariable(name = "uuid") uuid: String) = noteService.info(uuid)
+
+    @PostMapping("/save")
+    fun save(@RequestBody note: Note) = noteService.save(note)
+
+    @PostMapping("/delete/{uuid}")
+    fun delete(@PathVariable(name = "uuid") uuid: String) = noteService.delete(uuid)
 
 }

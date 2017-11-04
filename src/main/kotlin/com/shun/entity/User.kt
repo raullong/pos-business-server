@@ -40,4 +40,7 @@ open class User {
 
     // 位置信息
     var position: Location? = null
+
+    // 是否明星员工， 1：是、0：否
+    var superStar: Int? = null
 }

@@ -1,12 +1,7 @@
 package com.shun.commons
 
-import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
-import org.springframework.boot.web.client.RestTemplateBuilder
-import org.springframework.http.converter.StringHttpMessageConverter
-import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter
-import org.springframework.stereotype.Component
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.shun.config.BeetlProperties
 import net.sourceforge.pinyin4j.PinyinHelper
@@ -19,6 +14,11 @@ import org.beetl.core.GroupTemplate
 import org.beetl.core.resource.StringTemplateResourceLoader
 import org.springframework.beans.BeanUtils
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.web.client.RestTemplateBuilder
+import org.springframework.http.converter.StringHttpMessageConverter
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter
+import org.springframework.stereotype.Component
+import org.springframework.util.DigestUtils
 import java.text.SimpleDateFormat
 
 /**
@@ -96,5 +96,7 @@ open class ApiUtils {
         }
     }.joinToString("")
 
-
+    fun md5(str: String): String {
+        return DigestUtils.md5DigestAsHex(str.toByteArray())!!
+    }
 }
