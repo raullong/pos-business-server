@@ -20,6 +20,9 @@ class TaskServerEntity : TaskServer() {
     //终端编码
     var machineCode: String? = null
 
+    // 维护人员uuid
+    var serverUserUUID: String? = null
+
     // 创建用户uuid
     var createUserUUID: String? = null
 }

@@ -3,12 +3,16 @@ package com.shun.service
 import com.shun.commons.ApiUtils
 import com.shun.entity.*
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.data.domain.Sort
 import org.springframework.data.mongodb.core.MongoTemplate
 import org.springframework.data.mongodb.core.query.Criteria
 import org.springframework.data.mongodb.core.query.Query
 import org.springframework.data.mongodb.core.query.Update
 import org.springframework.stereotype.Service
+import org.springframework.web.multipart.MultipartFile
+import java.io.File
+import java.io.FileOutputStream
 import java.util.*
 
 /**
@@ -17,8 +21,17 @@ import java.util.*
 @Service
 class NoteService {
 
+    @Value("\${image.path}")
+    lateinit private var imagePath: String
+
+    @Value("\${image.baseUrl}")
+    lateinit private var imageBaseUrl: String
+
     @Autowired
     private lateinit var mongoTemplate: MongoTemplate
+
+    @Autowired
+    private lateinit var userService: UserService
 
     @Autowired
     private lateinit var utils: ApiUtils
@@ -40,15 +53,15 @@ class NoteService {
             request.type
         } else "通知"
         note.urgency = request.urgency
-        note.status = 1
-        note.isDel = 0
+        note.status = request.status ?: 1
+        note.logicDel = 0
 
         mongoTemplate.insert(note)
 
     }
 
     fun list(params: Map<String, String?>): Any {
-        val criteria = Criteria("isDel").`is`(0)
+        val criteria = Criteria("logicDel").`is`(0)
 
         val orList = mutableListOf<Criteria>()
         if (!params["searchKey"].isNullOrEmpty()) {
@@ -61,24 +74,7 @@ class NoteService {
         if (orList.isNotEmpty()) criteria.andOperator(Criteria().orOperator(*orList.toTypedArray()))
         val query = Query.query(criteria)
 
-        val page = if (params["page"] != null) params["page"].toString().toInt() else 1
-        val size = if (params["size"] != null) params["size"].toString().toInt() else 10
-
-        val totalSize = mongoTemplate.count(query, NoteEntity::class.java)
-        val totalPage = Math.ceil((totalSize / size.toDouble())).toInt()
-
-        val resp = mongoTemplate.find(query.with(Sort(Sort.Direction.DESC, "createTime")).skip((page - 1) * size).limit(size), NoteEntity::class.java)
-
-        val list = resp.map {
-            val temp = utils.copy(it, NoteResponse::class.java)
-
-            val userQuery = Query.query(Criteria("uuid").`is`(it.createUserUUID))
-            userQuery.fields().include("username").include("mobile").include("nickname").include("uuid").exclude("id")
-            temp.createUser = mongoTemplate.findOne(userQuery, UserEntity::class.java)
-            temp
-        }
-
-        return Page(list, page, size, totalPage, totalSize)
+        return queryPage(query, params)
     }
 
 
@@ -100,7 +96,7 @@ class NoteService {
     }
 
     fun delete(uuid: String) {
-        mongoTemplate.updateFirst(Query.query(Criteria("uuid").`is`(uuid)), Update.update("isDel", 1), NoteEntity::class.java)
+        mongoTemplate.updateFirst(Query.query(Criteria("uuid").`is`(uuid)), Update.update("logicDel", 1), NoteEntity::class.java)
     }
 
 
@@ -112,11 +108,100 @@ class NoteService {
      * 获取紧急通知信息列表
      */
     fun urgencyNoteList(params: Map<String, String?>): Any {
-        val criteria = Criteria("isDel").`is`(0).and("urgency").`is`(1)
+        val criteria = Criteria("logicDel").`is`(0).and("urgency").`is`(1)
+
+        val query = Query.query(criteria)
+        query.fields().exclude("id").exclude("logicDel")
+
+        return queryPage(query, params)
+    }
+
+    /**
+     * 获取通知公告列表，分已读和未读。
+     */
+    fun appNoteList(user: User, params: Map<String, String?>): Any {
+        val criteria = Criteria("logicDel").`is`(0)
+
+        val isRead = (params["isRead"] ?: 1).toString().toInt()
+
+        val readNoteUUID = mongoTemplate.findOne(Query.query(Criteria("userUUID").`is`(user.uuid)), NoteReaded::class.java)
+        when (isRead) {
+            1 -> criteria.and("uuid").`in`(readNoteUUID.noteUUID)
+            else -> criteria.and("uuid").nin(readNoteUUID.noteUUID)
+        }
 
         val query = Query.query(criteria)
         query.fields().exclude("id").exclude("isDel")
 
+        return queryPage(query, params)
+    }
+
+
+    /**
+     * 通知公告详情，标记为已读。
+     *
+     * @param user 登录用户
+     * @param uuid 公告uuid
+     */
+    fun appNoteInfo(user: User, uuid: String): Any {
+        val criteria = Criteria("uuid").`is`(uuid)
+        val query = Query.query(criteria)
+        query.fields().exclude("id").exclude("logicDel")
+
+        val note = mongoTemplate.findOne(query, NoteEntity::class.java)
+
+        if (note != null) {
+            val readNote = mongoTemplate.findOne(Query.query(Criteria("userUUID").`is`(user.uuid)), NoteReaded::class.java)
+
+            if (readNote != null) {
+                readNote.noteUUID = readNote.noteUUID!!.plus(uuid)
+                mongoTemplate.save(readNote)
+            } else {
+                val noteEntity = NoteReaded()
+                noteEntity.userUUID = user.uuid
+                noteEntity.noteUUID = arrayListOf(uuid)
+                noteEntity.createTime = Date()
+                noteEntity.status = 1
+
+                mongoTemplate.insert(noteEntity)
+            }
+        }
+        return note
+    }
+
+
+    /**
+     * 发布公告
+     *
+     * @param user 登录用户
+     * @param title 公告标题
+     * @param content 公告内容
+     * @param urgency 是否紧急
+     * @param images 公告图片
+     */
+    fun appCreateNote(user: User, title: String, content: String, urgency: Int, images: List<MultipartFile>?) {
+        val entity = NoteEntity()
+        entity.title = title
+        entity.content = content
+        entity.logicDel = 0
+        entity.status = 1
+        entity.urgency = urgency
+
+        entity.images = images?.map {
+            val fileName = it.originalFilename
+            val suffix = fileName.substringAfterLast(".")
+            val currentTimeMillis = System.currentTimeMillis()
+            val imageFile = File("$imagePath$currentTimeMillis.$suffix")
+
+            val outStream = FileOutputStream(imageFile)
+            outStream.write(it.bytes)
+            outStream.close()
+            "$imageBaseUrl$imagePath$currentTimeMillis.$suffix"
+        }
+    }
+
+
+    private fun queryPage(query: Query, params: Map<String, String?>): Any {
         val page = if (params["page"] != null) params["page"].toString().toInt() else 1
         val size = if (params["size"] != null) params["size"].toString().toInt() else 10
 
@@ -127,13 +212,9 @@ class NoteService {
 
         val list = resp.map {
             val temp = utils.copy(it, NoteResponse::class.java)
-
-            val userQuery = Query.query(Criteria("uuid").`is`(it.createUserUUID))
-            userQuery.fields().include("username").include("mobile").include("nickname").include("uuid").exclude("id")
-            temp.createUser = mongoTemplate.findOne(userQuery, UserEntity::class.java)
+            temp.createUser = userService.findByUUID(it.createUserUUID)
             temp
         }
-
         return Page(list, page, size, totalPage, totalSize)
     }
 }

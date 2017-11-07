@@ -158,7 +158,9 @@ class UserService {
         return token
     }
 
-
+    /**
+     * 获取明星员工
+     */
     fun superStar(): Any {
         val query = Query.query(Criteria("status").`is`(1).and("superStar").`is`(1))
         query.fields().exclude("id")
@@ -170,4 +172,22 @@ class UserService {
         return mongoTemplate.find(query, UserEntity::class.java)
     }
 
+
+    /**
+     * 公共方法
+     */
+
+    fun findByUUID(uuid: String?): User? {
+        return if (!uuid.isNullOrEmpty()) {
+            val query = Query.query(Criteria("uuid").`is`(uuid))
+            query.fields().include("uuid").include("username").include("mobile").include("nickname").include("position").exclude("id")
+            mongoTemplate.findOne(query, UserEntity::class.java)
+        } else null
+    }
+
+    fun findByMobile(mobile: String): User {
+        val query = Query.query(Criteria("mobile").`is`(mobile))
+        query.fields().include("uuid").include("username").include("mobile").include("nickname").include("position").exclude("id")
+        return mongoTemplate.findOne(query, UserEntity::class.java)
+    }
 }

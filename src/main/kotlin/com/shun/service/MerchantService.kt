@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.data.mongodb.core.MongoTemplate
 import org.springframework.data.mongodb.core.query.Criteria
 import org.springframework.data.mongodb.core.query.Query
+import org.springframework.data.mongodb.core.query.Update
 import org.springframework.stereotype.Service
 import java.util.*
 
@@ -21,10 +22,13 @@ class MerchantService {
     private lateinit var mongoTemplate: MongoTemplate
 
     @Autowired
+    private lateinit var userService: UserService
+
+    @Autowired
     private lateinit var utils: ApiUtils
 
     fun list(params: Map<String, String?>): Any {
-        val criteria = Criteria()
+        val criteria = Criteria("logicDel").`is`(0)
 
         val orList = mutableListOf<Criteria>()
         if (!params["searchKey"].isNullOrEmpty()) {
@@ -51,7 +55,7 @@ class MerchantService {
 
         val list = resp.map {
             val item = utils.copy(it, MerchantResponse::class.java)
-            item.createUser = mongoTemplate.findOne(Query.query(Criteria("uuid").`is`(it.createUserUUID)), User::class.java)
+            item.createUser = userService.findByUUID(it.createUserUUID)
             item
         }
 
@@ -64,6 +68,8 @@ class MerchantService {
         entity.uuid = UUID.randomUUID().toString()
         entity.createUserUUID = user.uuid
         entity.createTime = Date()
+        entity.logicDel = 0
+        entity.status = merchant.status ?: 1
 
         mongoTemplate.insert(entity)
     }
@@ -93,14 +99,14 @@ class MerchantService {
     }
 
     fun delete(uuid: String) {
-        mongoTemplate.remove(Query.query(Criteria("uuid").`is`(uuid)), MerchantEntity::class.java)
+        mongoTemplate.updateFirst(Query.query(Criteria("uuid").`is`(uuid)), Update.update("logicDel", 1), MerchantEntity::class.java)
     }
 
     fun remote(name: String): Any {
-        return mongoTemplate.find(Query.query(Criteria("name").regex(name)), MerchantEntity::class.java)
+        return mongoTemplate.find(Query.query(Criteria("logicDel").`is`(0).and("name").regex(name)), MerchantEntity::class.java)
     }
 
     fun mapList(): List<MerchantEntity> {
-        return  mongoTemplate.find(Query.query(Criteria("status").`is`(1)), MerchantEntity::class.java)
+        return mongoTemplate.find(Query.query(Criteria("logicDel").`is`(0).and("status").`is`(1)), MerchantEntity::class.java)
     }
 }

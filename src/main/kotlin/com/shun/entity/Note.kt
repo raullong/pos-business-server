@@ -16,6 +16,9 @@ open class Note {
     //内容
     var content: String? = null
 
+    // 图片
+    var images: List<String>? = null
+
     //创建时间
     var createTime: Date? = null
 
@@ -29,5 +32,5 @@ open class Note {
     var status: Int? = null
 
     // 标记是否删除，1：已删除、0：未删除
-    var isDel: Int? = null
+    var logicDel: Int? = null
 }

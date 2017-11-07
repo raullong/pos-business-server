@@ -3,9 +3,10 @@ package com.shun.config
 import com.shun.interceptors.ApiInterceptor
 import com.shun.interceptors.AuthInterceptors
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.context.annotation.Bean
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Configuration
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry
+import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurerAdapter
 
 /**
@@ -15,6 +16,9 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurerAdapter
 @Configuration
 class WebConfig : WebMvcConfigurerAdapter() {
 
+    @Value("\${image.path}")
+    lateinit private var imagePath: String
+
     @Autowired
     private lateinit var apiInterceptor: ApiInterceptor
 
@@ -23,9 +27,15 @@ class WebConfig : WebMvcConfigurerAdapter() {
 
     override fun addInterceptors(registry: InterceptorRegistry) {
         registry.addInterceptor(authInterceptor)
-                .excludePathPatterns("/auth/**", "/api/**")
+                .excludePathPatterns("/auth/**", "/api/**", "/client/**")
                 .addPathPatterns("/app/**")
         registry.addInterceptor(apiInterceptor)
-                .addPathPatterns("/api/v1/**")
+                .addPathPatterns("/api/v1/**", "/client/**")
+    }
+
+
+    override fun addResourceHandlers(registry: ResourceHandlerRegistry) {
+        registry.addResourceHandler("/image/**").addResourceLocations("file:$imagePath")
+        super.addResourceHandlers(registry)
     }
 }

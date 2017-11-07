@@ -20,6 +20,9 @@ class DispatchService {
     private lateinit var mongoTemplate: MongoTemplate
 
     @Autowired
+    private lateinit var userService: UserService
+
+    @Autowired
     private lateinit var utils: ApiUtils
 
     fun create(user: User, dispatch: Dispatch) {
@@ -34,40 +37,37 @@ class DispatchService {
         if (!dispatch.machineCode.isNullOrEmpty()) {
             entity.machineCode = dispatch.machineCode
             mongoTemplate.updateFirst(Query.query(merchantCriteria), Update().set("machineCode", dispatch.machineCode), MerchantEntity::class.java)
-        }
-        if (!dispatch.machineCode.isNullOrEmpty()) {
-            entity.machineCode = dispatch.machineCode
-            mongoTemplate.updateFirst(Query.query(merchantCriteria), Update().set("machineCode", dispatch.machineCode), MerchantEntity::class.java)
         } else {
-            if (dispatch.machineCode.isNullOrEmpty()) entity.machineCode = merchant.machineCode
+            entity.machineCode = merchant.machineCode
         }
 
         entity.merchantUUID = merchant.uuid
 
         if (!dispatch.signUserMobile.isNullOrEmpty()) {
-            val signUser = mongoTemplate.findOne(Query.query(Criteria("mobile").`is`(dispatch.signUserMobile)), User::class.java)
-            entity.signUserName = signUser.username
+            val signUser = userService.findByMobile(dispatch.signUserMobile!!)
+            entity.signUserUUID = signUser.uuid
         }
 
         if (!dispatch.installUserMobile.isNullOrEmpty()) {
-            val installUser = mongoTemplate.findOne(Query.query(Criteria("mobile").`is`(dispatch.installUserMobile)), User::class.java)
-            entity.installUserName = installUser.username
+            val installUser = userService.findByMobile(dispatch.installUserMobile!!)
+            entity.installUserUUID = installUser.uuid
         }
 
         if (!dispatch.drawUserMobile.isNullOrEmpty()) {
-            val drawUser = mongoTemplate.findOne(Query.query(Criteria("mobile").`is`(dispatch.drawUserMobile)), User::class.java)
-            entity.drawUserName = drawUser.username
+            val drawUser = userService.findByMobile(dispatch.drawUserMobile!!)
+            entity.drawUserUUID = drawUser.uuid
         }
 
         entity.uuid = UUID.randomUUID().toString()
         entity.createUserUUID = user.uuid
         entity.createTime = Date()
+        entity.logicDel = 0
 
         mongoTemplate.insert(entity)
     }
 
     fun list(params: Map<String, String?>): Any {
-        val criteria = Criteria()
+        val criteria = Criteria("logicDel").`is`(0)
 
         val orList = mutableListOf<Criteria>()
         if (!params["searchKey"].isNullOrEmpty()) {
@@ -75,12 +75,16 @@ class DispatchService {
             orList.add(Criteria("merchantCode").regex(params["searchKey"]))
             orList.add(Criteria("machineCode").regex(params["searchKey"]))
             orList.add(Criteria("type").`is`(params["searchKey"]))
-            orList.add(Criteria("signUserMobile").regex(params["searchKey"]))
-            orList.add(Criteria("signUserName").regex(params["searchKey"]))
-            orList.add(Criteria("drawUserName").regex(params["searchKey"]))
-            orList.add(Criteria("drawUserMobile").regex(params["searchKey"]))
-            orList.add(Criteria("installUserName").regex(params["searchKey"]))
-            orList.add(Criteria("installUserMobile").regex(params["searchKey"]))
+
+            val user = mongoTemplate.find(Query.query(Criteria().orOperator(*arrayListOf(
+                    Criteria("mobile").regex(params["searchKey"]),
+                    Criteria("username").regex(params["searchKey"]),
+                    Criteria("nickname").regex(params["searchKey"])
+            ).toTypedArray())), UserEntity::class.java)
+
+            orList.add(Criteria("signUserUUID").`in`(user.map { it.uuid }))
+            orList.add(Criteria("drawUserUUID").`in`(user.map { it.uuid }))
+            orList.add(Criteria("installUserUUID").`in`(user.map { it.uuid }))
         }
 
         if (!params["status"].isNullOrEmpty()) criteria.and("status").`in`(params["status"]!!.split(",").map(String::toInt))
@@ -98,7 +102,10 @@ class DispatchService {
 
         val list = resp.map {
             val item = utils.copy(it, DispatchResponse::class.java)
-            item.createUser = mongoTemplate.findOne(Query.query(Criteria("uuid").`is`(it.createUserUUID)), User::class.java)
+            item.signUser = userService.findByUUID(it.signUserUUID)
+            item.drawUser = userService.findByUUID(it.drawUserUUID)
+            item.installUser = userService.findByUUID(it.installUserUUID)
+            item.createUser = userService.findByUUID(it.createUserUUID)
             item.merchant = mongoTemplate.findOne(Query.query(Criteria("uuid").`is`(it.merchantUUID)), MerchantEntity::class.java)
             item
         }
@@ -133,20 +140,20 @@ class DispatchService {
         if (!dispatch.type.isNullOrEmpty()) entity.type = dispatch.type
 
         if (!dispatch.signUserMobile.isNullOrEmpty()) {
-            val signUser = mongoTemplate.findOne(Query.query(Criteria("mobile").`is`(dispatch.signUserMobile)), User::class.java)
-            entity.signUserName = signUser.username
+            val signUser = userService.findByMobile(dispatch.signUserMobile!!)
+            entity.signUserUUID = signUser.uuid
             entity.signUserMobile = signUser.mobile
         }
 
         if (!dispatch.installUserMobile.isNullOrEmpty()) {
-            val installUser = mongoTemplate.findOne(Query.query(Criteria("mobile").`is`(dispatch.installUserMobile)), User::class.java)
-            entity.installUserName = installUser.username
+            val installUser = userService.findByMobile(dispatch.installUserMobile!!)
+            entity.installUserUUID = installUser.uuid
             entity.installUserMobile = installUser.mobile
         }
 
         if (!dispatch.drawUserMobile.isNullOrEmpty()) {
-            val drawUser = mongoTemplate.findOne(Query.query(Criteria("mobile").`is`(dispatch.drawUserMobile)), User::class.java)
-            entity.drawUserName = drawUser.username
+            val drawUser = userService.findByMobile(dispatch.drawUserMobile!!)
+            entity.drawUserUUID = drawUser.uuid
             entity.drawUserMobile = drawUser.mobile
         }
 
@@ -159,6 +166,6 @@ class DispatchService {
     }
 
     fun delete(uuid: String) {
-        mongoTemplate.remove(Query.query(Criteria("uuid").`is`(uuid)), DispatchEntity::class.java)
+        mongoTemplate.updateFirst(Query.query(Criteria("uuid").`is`(uuid)), Update.update("logicDel", 1), DispatchEntity::class.java)
     }
 }

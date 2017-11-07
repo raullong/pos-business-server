@@ -27,20 +27,11 @@ open class Dispatch {
     //押金类型
     var moneyType: String? = null
 
-    //签约人姓名
-    var signUserName: String? = null
-
     //签约人电话
     var signUserMobile: String? = null
 
-    // 设备领取人姓名
-    var drawUserName: String? = null
-
     // 设备领取人电话
     var drawUserMobile: String? = null
-
-    //装机人姓名
-    var installUserName: String? = null
 
     //装机人电话
     var installUserMobile: String? = null
@@ -59,5 +50,8 @@ open class Dispatch {
 
     //通讯费
     var messageMoney: Double? = null
+
+    // 逻辑删除，1：已删除、 0：未删除
+    var logicDel: Int? = null
 
 }

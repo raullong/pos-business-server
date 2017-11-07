@@ -3,6 +3,7 @@ package com.shun.service
 import com.shun.commons.ApiUtils
 import com.shun.entity.*
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.data.domain.Sort
 import org.springframework.data.mongodb.core.MongoTemplate
 import org.springframework.data.mongodb.core.query.Criteria
 import org.springframework.data.mongodb.core.query.Query
@@ -19,6 +20,9 @@ class TaskServerService {
 
     @Autowired
     private lateinit var mongoTemplate: MongoTemplate
+
+    @Autowired
+    private lateinit var userService: UserService
 
     @Autowired
     private lateinit var utils: ApiUtils
@@ -38,22 +42,30 @@ class TaskServerService {
         temp.merchantName = merchant.name
         temp.merchantCode = merchant.code
         temp.status = temp.status ?: 0
+        temp.logicDel = 0
         temp.createTime = Date()
         temp.createUserUUID = user.uuid
+
+        temp.serverUserUUID = userService.findByMobile(taskServer.serverMobile!!).uuid
 
         mongoTemplate.insert(temp)
     }
 
     fun list(params: Map<String, String>): Any {
-        val criteria = Criteria()
+        val criteria = Criteria("logicDel").`is`(0)
 
         val orList = mutableListOf<Criteria>()
         if (!params["searchKey"].isNullOrEmpty()) {
             orList.add(Criteria("merchantName").regex(params["searchKey"]))
             orList.add(Criteria("merchantCode").regex(params["searchKey"]))
             orList.add(Criteria("machineCode").regex(params["searchKey"]))
-            orList.add(Criteria("serverName").regex(params["searchKey"]))
-            orList.add(Criteria("serverMobile").regex(params["searchKey"]))
+            val user = mongoTemplate.find(Query.query(Criteria().orOperator(*arrayListOf(
+                    Criteria("mobile").regex(params["searchKey"]),
+                    Criteria("username").regex(params["searchKey"]),
+                    Criteria("nickname").regex(params["searchKey"])
+            ).toTypedArray())), UserEntity::class.java)
+
+            orList.add(Criteria("serverUserUUID").`in`(user.map { it.uuid }))
             orList.add(Criteria("type").regex(params["searchKey"]))
         }
 
@@ -68,12 +80,13 @@ class TaskServerService {
         val totalSize = mongoTemplate.count(query, TaskServerEntity::class.java)
         val totalPage = Math.ceil((totalSize / size.toDouble())).toInt()
 
-        val resp = mongoTemplate.find(query.skip((page - 1) * size).limit(size), TaskServerEntity::class.java)
+        val resp = mongoTemplate.find(query.with(Sort(Sort.Direction.DESC, "createTime")).skip((page - 1) * size).limit(size), TaskServerEntity::class.java)
 
         val list = resp.map {
             val item = utils.copy(it, TaskServerResponse::class.java)
             item.merchant = mongoTemplate.findOne(Query.query(Criteria("code").`is`(it.merchantCode)), MerchantEntity::class.java)
-            item.createUser = mongoTemplate.findOne(Query.query(Criteria("uuid").`is`(it.createUserUUID)), User::class.java)
+            item.serverUser = userService.findByUUID(it.serverUserUUID)
+            item.createUser = userService.findByUUID(it.createUserUUID)
             item
         }
 
@@ -100,16 +113,21 @@ class TaskServerService {
         if (!taskServer.question.isNullOrEmpty()) entity.question = taskServer.question
 
         if (!taskServer.serverMobile.isNullOrEmpty()) {
-            val serverUser = mongoTemplate.findOne(Query.query(Criteria("mobile").`is`(taskServer.serverMobile)), User::class.java)
-            entity.serverName = serverUser.username
+            val serverUser = userService.findByMobile(taskServer.serverMobile!!)
+            entity.serverUserUUID = serverUser.uuid
             entity.serverMobile = serverUser.mobile
         }
 
         if (!taskServer.taskTime.isNullOrEmpty()) entity.taskTime = taskServer.taskTime
-        if (!taskServer.issuseTime.isNullOrEmpty()) entity.issuseTime = taskServer.issuseTime
+        if (!taskServer.issueTime.isNullOrEmpty()) entity.issueTime = taskServer.issueTime
         if (!taskServer.type.isNullOrEmpty()) entity.type = taskServer.type
         if (taskServer.status != null) entity.status = taskServer.status
 
         mongoTemplate.save(entity)
+    }
+
+
+    fun delete(uuid: String) {
+        mongoTemplate.updateFirst(Query.query(Criteria("uuid").`is`(uuid)), Update.update("logicDel", 1), TaskServerEntity::class.java)
     }
 }

@@ -19,9 +19,6 @@ open class TaskServer {
     // 维护问题描述
     var question: String? = null
 
-    // 维护人姓名
-    var serverName: String? = null
-
     // 维护人电话
     var serverMobile: String? = null
 
@@ -32,11 +29,14 @@ open class TaskServer {
     var taskTime: String? = null
 
     // 发布时间
-    var issuseTime: String? = null
+    var issueTime: String? = null
 
     // 创建日期
     var createTime: Date? = null
 
     //维护类型
     var type: String? = null
+
+    // 逻辑删除，1：已删除、 0：未删除
+    var logicDel: Int? = null
 }

@@ -28,4 +28,7 @@ class TaskServerController {
 
     @PostMapping("/save")
     fun save(@RequestBody taskServer: TaskServer) = taskServerService.save(taskServer)
+
+    @PostMapping("/delete/{uuid}")
+    fun del(@PathVariable(name = "uuid") uuid: String) = taskServerService.delete(uuid)
 }

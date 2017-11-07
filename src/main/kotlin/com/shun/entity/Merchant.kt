@@ -1,6 +1,5 @@
 package com.shun.entity
 
-import com.shun.commons.IDEntity
 import java.util.*
 
 /**
@@ -47,4 +46,7 @@ open class Merchant {
 
     //终端编码
     var machineCode: String? = null
+
+    // 逻辑删除，1：已删除、 0：未删除
+    var logicDel: Int? = null
 }
