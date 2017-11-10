@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.*
  * @Email: lwn1207jak@163.com
  */
 @RestController
-@RequestMapping("/app/user")
+@RequestMapping("/client/user")
 class AUserController {
 
     @Autowired

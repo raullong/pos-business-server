@@ -4,10 +4,10 @@ import com.shun.commons.ApiUtils
 import com.shun.commons.exception.AppException
 import com.shun.entity.*
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.data.domain.Sort
 import org.springframework.data.mongodb.core.MongoTemplate
 import org.springframework.data.mongodb.core.query.Criteria
 import org.springframework.data.mongodb.core.query.Query
-import org.springframework.data.mongodb.core.query.Update
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
 import org.springframework.stereotype.Service
 import java.util.*
@@ -32,15 +32,17 @@ class UserService {
 
         val entity = utils.copy(user, UserEntity::class.java)
 
+        if (user.username.isNullOrEmpty()) throw AppException("用户名不能为空")
         if (user.mobile.isNullOrEmpty()) throw AppException("手机号不能为空")
-        if (user.type == null) throw AppException("用户类型不能为空")
+        if (user.type == null || user.type!!.isEmpty()) throw AppException("用户类型不能为空")
 
-        if (mongoTemplate.exists(Query.query(Criteria("mobile").`is`(user.mobile).and("type").`is`(user.type)), UserEntity::class.java)) throw AppException("用户已存在")
+        if (mongoTemplate.exists(Query.query(Criteria("username").`is`(user.username)), UserEntity::class.java)) throw AppException("用户${user.username}已存在")
 
         entity.uuid = UUID.randomUUID().toString()
         val md5Password = if (user.password.isNullOrEmpty()) utils.md5("123456") else utils.md5(user.password!!)
         entity.password = passwordEncoder.encode(md5Password)
         entity.createTime = Date()
+        entity.nickname = user.nickname ?: user.username
         entity.status = 1
         entity.superStar = 0
 
@@ -74,10 +76,10 @@ class UserService {
         val totalSize = mongoTemplate.count(query, UserEntity::class.java)
         val totalPage = Math.ceil((totalSize / size.toDouble())).toInt()
 
-        val resp = mongoTemplate.find(query.skip((page - 1) * size).limit(size), UserEntity::class.java)
+        val resp = mongoTemplate.find(query.with(Sort(Sort.Direction.DESC, "createTime")).skip((page - 1) * size).limit(size), UserEntity::class.java)
         val list = resp.map {
             val temp = utils.copy(it, UserResponse::class.java)
-            temp.userType = mongoTemplate.findOne(Query.query(Criteria("key").`is`(it.type)), UserTypeEntity::class.java)
+            temp.userType = mongoTemplate.find(Query.query(Criteria("key").`in`(it.type)), UserTypeEntity::class.java).joinToString { it.value!! }
             temp
         }
 
@@ -87,42 +89,38 @@ class UserService {
     // 重置密码
     fun resetPassword(uuid: String) {
         val user = mongoTemplate.findOne(Query.query(Criteria("uuid").`is`(uuid)), UserEntity::class.java)
-        user.password = passwordEncoder.encode("123456")
+        user.password = passwordEncoder.encode(utils.md5("123456"))
         mongoTemplate.save(user)
     }
 
     fun info(uuid: String) = mongoTemplate.findOne(Query.query(Criteria("uuid").`is`(uuid)), UserEntity::class.java) ?: throw AppException("用户错误")
 
-
+    /**
+     * 修改用户信息
+     */
     fun save(user: User) {
 
         val entity = mongoTemplate.findOne(Query.query(Criteria("uuid").`is`(user.uuid)), UserEntity::class.java)
 
-        val type = user.type ?: entity.type
-        val mobile = user.mobile ?: entity.mobile
+        val temp = mongoTemplate.findOne(Query.query(Criteria("username").`is`(user.username)), UserEntity::class.java)
+        if (temp != null && temp.uuid != entity.uuid) throw AppException("用户${user.username}已存在")
 
-        val temp = mongoTemplate.findOne(Query.query(Criteria("mobile").`is`(mobile).and("type").`is`(type)), UserEntity::class.java)
-        if (temp != null && temp.uuid != entity.uuid) throw AppException("用户已存在")
-
-        entity.mobile = mobile
-        entity.type = type
-        entity.username = user.username
-        entity.nickname = user.nickname
-        entity.status = user.status
-        entity.superStar = user.superStar
+        if (!user.mobile.isNullOrEmpty()) entity.mobile = user.mobile
+        if (user.type != null && user.type!!.isNotEmpty()) entity.type = user.type
+        if (!user.username.isNullOrEmpty()) entity.username = user.username
+        if (!user.nickname.isNullOrEmpty()) entity.nickname = user.nickname
+        if (user.status != null) entity.status = user.status
+        if (user.superStar != null) entity.superStar = user.superStar
 
         mongoTemplate.save(entity)
     }
 
 
-    fun modify(mobile: String, params: Map<String, Any?>) {
-        params["status"] ?: throw AppException("参数错误")
-        mongoTemplate.findAndModify(Query.query(Criteria("mobile").`is`(mobile)), Update().set("status", params["status"].toString().toInt()), User::class.java)
-    }
-
-
-    fun remote(mobile: String): Any {
-        return mongoTemplate.find(Query.query(Criteria("mobile").regex(mobile)), User::class.java)
+    fun remote(name: String): Any {
+        return mongoTemplate.find(Query.query(Criteria().orOperator(
+                Criteria("mobile").regex(name),
+                Criteria("username").regex(name),
+                Criteria("nickname").regex(name))), UserEntity::class.java)
     }
 
 
@@ -149,6 +147,7 @@ class UserService {
     fun appLogin(username: String, password: String): String {
         val user = mongoTemplate.findOne(Query.query(Criteria("username").`is`(username).and("status").`is`(1)), UserEntity::class.java) ?: throw AppException("用户不存在")
 
+        if (user.type == null || user.type!!.filter { it != 1 }.isEmpty()) throw AppException("用户类型错误")
         if (!passwordEncoder.matches(password, user.password)) throw AppException("用户名或密码错误")
 
         val token = UUID.randomUUID().toString()
@@ -170,6 +169,14 @@ class UserService {
                 .exclude("token")
                 .exclude("type")
         return mongoTemplate.find(query, UserEntity::class.java)
+    }
+
+
+    /**
+     * 获取附近的同事
+     */
+    fun nearUser(user: User) {
+
     }
 
 

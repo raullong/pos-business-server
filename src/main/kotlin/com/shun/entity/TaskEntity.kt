@@ -4,12 +4,12 @@ import org.springframework.data.annotation.Id
 import org.springframework.data.mongodb.core.mapping.Document
 
 /**
- * Created by alwaysbe on 2017/10/27.
+ * Created by alwaysbe on 2017/10/26.
  *
  * @Email: lwn1207jak@163.com
  */
-@Document(collection = "dispatch")
-class DispatchEntity : Dispatch() {
+@Document(collection = "task")
+class TaskEntity : Task() {
 
     @Id
     var id: String? = null
@@ -26,6 +26,12 @@ class DispatchEntity : Dispatch() {
     // 装机人用户uuid
     var installUserUUID: String? = null
 
+    // 维护人员uuid
+    var serverUserUUID: String? = null
+
     // 创建用户uuid
     var createUserUUID: String? = null
+
+    // 逻辑删除，1：已删除、 0：未删除
+    var logicDel: Int? = null
 }

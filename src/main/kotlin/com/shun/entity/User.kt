@@ -10,7 +10,7 @@ open class User {
     // 用户uuid
     var uuid: String? = null
 
-    // 用户姓名
+    // 用户姓名 唯一
     var username: String? = null
 
     // 用户手机号码
@@ -22,12 +22,15 @@ open class User {
     // 登陆密码
     var password: String? = null
 
+    // 用户头像
+    var headImage: String? = null
+
     // 用户状态
     var status: Int? = null
 
     //用户类别 1 管理员 2 App客户端用户 3 第三方用户
     // 用户类别
-    var type: Int? = null
+    var type: List<Int>? = null
 
     // 平台
     var client: String? = null

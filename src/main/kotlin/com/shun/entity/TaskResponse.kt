@@ -1,11 +1,11 @@
 package com.shun.entity
 
 /**
- * Created by alwaysbe on 2017/10/27.
+ * Created by alwaysbe on 2017/10/26.
  *
  * @Email: lwn1207jak@163.com
  */
-class DispatchResponse : Dispatch() {
+class TaskResponse : Task() {
 
     // 商户信息
     var merchant: Merchant? = null
@@ -18,6 +18,9 @@ class DispatchResponse : Dispatch() {
 
     // 装机人用户
     var installUser: User? = null
+
+    // 维护人用户
+    var serverUser: User? = null
 
     // 创建用户
     var createUser: User? = null

@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RestController
  * @Email: lwn1207jak@163.com
  */
 @RestController
-@RequestMapping("/app/note")
+@RequestMapping("/client/note")
 class ANoteController {
 
     @Autowired

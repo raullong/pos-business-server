@@ -8,5 +8,5 @@ package com.shun.entity
 class UserResponse : User() {
 
     // 用户类型
-    var userType: UserTypeEntity? = null
+    var userType: String? = null
 }

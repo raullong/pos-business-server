@@ -27,7 +27,7 @@ class WebConfig : WebMvcConfigurerAdapter() {
 
     override fun addInterceptors(registry: InterceptorRegistry) {
         registry.addInterceptor(authInterceptor)
-                .excludePathPatterns("/auth/**", "/api/**", "/client/**")
+                .excludePathPatterns("/auth/**", "/client/**")
                 .addPathPatterns("/app/**")
         registry.addInterceptor(apiInterceptor)
                 .addPathPatterns("/api/v1/**", "/client/**")

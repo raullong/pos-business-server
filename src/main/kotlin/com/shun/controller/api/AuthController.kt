@@ -21,9 +21,9 @@ class AuthController {
 
     @PostMapping("/login")
     fun login(@RequestBody params: Map<String, String>, session: HttpSession) {
-        val mobile = params["mobile"] ?: throw AppException("登录手机号不能为空")
+        val username = params["username"] ?: throw AppException("登录用户名不能为空")
         val password = params["password"] ?: throw AppException("登录密码不能为空")
-        session.setAttribute("user", authService.login(mobile, password, USER_TYPE_MANAGE))
+        session.setAttribute("user", authService.login(username, password, USER_TYPE_MANAGE))
     }
 
     @PutMapping("/logout")
@@ -32,5 +32,5 @@ class AuthController {
     }
 
     @PostMapping("/info")
-    fun info(@SessionAttribute(name = "user") user: User) = authService.info(user.mobile!!)
+    fun info(@SessionAttribute(name = "user") user: User) = authService.info(user.username!!)
 }
