@@ -15,6 +15,9 @@ class Location : IDEntity() {
     // 唯一标识
     var uuid: String? = null
 
+    // 名称
+    var name: String? = null
+
     // 纬度
     var lat: Double? = null
 

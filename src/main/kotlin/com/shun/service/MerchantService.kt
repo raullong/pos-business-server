@@ -1,6 +1,7 @@
 package com.shun.service
 
 import com.shun.commons.ApiUtils
+import com.shun.commons.QueryUtils
 import com.shun.entity.*
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.data.mongodb.core.MongoTemplate
@@ -23,6 +24,9 @@ class MerchantService {
 
     @Autowired
     private lateinit var userService: UserService
+
+    @Autowired
+    private lateinit var queryUtils: QueryUtils
 
     @Autowired
     private lateinit var utils: ApiUtils
@@ -108,5 +112,24 @@ class MerchantService {
 
     fun mapList(): List<MerchantEntity> {
         return mongoTemplate.find(Query.query(Criteria("logicDel").`is`(0).and("status").`is`(1)), MerchantEntity::class.java)
+    }
+
+
+    /**
+     * APP端相关应用接口
+     */
+
+    /**
+     * 商户位置采集
+     */
+    fun aCollectLocation(uuid: String, location: Location) {
+
+        val merchantQuery = queryUtils.buildQuery(Criteria("uuid").`is`(uuid))
+        val merchant = mongoTemplate.findOne(merchantQuery, MerchantEntity::class.java)
+        if (merchant != null) {
+            merchant.locationInfo = location
+            if (!location.address.isNullOrEmpty()) merchant.address = location.address
+        }
+        mongoTemplate.save(merchant)
     }
 }

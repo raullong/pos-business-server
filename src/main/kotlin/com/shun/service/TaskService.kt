@@ -1,14 +1,21 @@
 package com.shun.service
 
 import com.shun.commons.ApiUtils
+import com.shun.commons.QueryUtils
+import com.shun.commons.exception.AppException
 import com.shun.entity.*
+import jodd.datetime.JDateTime
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.data.domain.Sort
 import org.springframework.data.mongodb.core.MongoTemplate
 import org.springframework.data.mongodb.core.query.Criteria
 import org.springframework.data.mongodb.core.query.Query
 import org.springframework.data.mongodb.core.query.Update
 import org.springframework.stereotype.Service
+import org.springframework.web.multipart.MultipartFile
+import java.io.File
+import java.io.FileOutputStream
 import java.util.*
 
 /**
@@ -18,6 +25,12 @@ import java.util.*
 @Service
 class TaskService {
 
+    @Value("\${image.path}")
+    lateinit private var imagePath: String
+
+    @Value("\${image.baseUrl}")
+    lateinit private var imageBaseUrl: String
+
     @Autowired
     private lateinit var mongoTemplate: MongoTemplate
 
@@ -26,6 +39,9 @@ class TaskService {
 
     @Autowired
     private lateinit var utils: ApiUtils
+
+    @Autowired
+    private lateinit var queryUtils: QueryUtils
 
     /**
      * 创建维护工单
@@ -179,9 +195,117 @@ class TaskService {
     /**
      * 获取今日任务列表
      */
+    fun curTask(user: User, page: Int, size: Int): Any {
+        val criteria = Criteria("logicDel").`is`(0)
+
+        val timeOrOperator = mutableListOf<Criteria>()
+        timeOrOperator.add(Criteria("installTime").regex(JDateTime().toString("YYYY-MM-DD")))
+        timeOrOperator.add(Criteria("serverTime").regex(JDateTime().toString("YYYY-MM-DD")))
+
+        val userOrOperator = mutableListOf<Criteria>()
+        userOrOperator.add(Criteria("installUserUUID").`is`(user.uuid))
+        userOrOperator.add(Criteria("serverUserUUID").`is`(user.uuid))
+
+        criteria.andOperator(Criteria().orOperator(*timeOrOperator.toTypedArray()), Criteria().orOperator(*userOrOperator.toTypedArray()))
+
+        val pageInfo = queryUtils.queryObject(
+                criteria,
+                arrayListOf("uuid", "type", "status", "createTime", "createUserUUID", "merchantUUID"),
+                arrayListOf("id"),
+                arrayListOf("createTime"),
+                null,
+                page,
+                size,
+                TaskEntity::class.java)
+
+        val list = pageInfo.list.map {
+            val item = utils.copy(it, TaskResponse::class.java)
+
+            val merchantQuery = queryUtils.buildQuery(
+                    Criteria("uuid").`is`(it.merchantUUID),
+                    arrayListOf("machineCode"),
+                    arrayListOf("id")
+            )
+
+            val userQuery = queryUtils.buildQuery(
+                    Criteria("uuid").`is`(it.createUserUUID),
+                    arrayListOf("nickname", "username"),
+                    arrayListOf("id")
+            )
+            item.merchant = mongoTemplate.findOne(merchantQuery, MerchantEntity::class.java)
+            item.createUser = mongoTemplate.findOne(userQuery, UserEntity::class.java)
+            item
+        }
+
+        return Page(list, page, size, pageInfo.totalPage, pageInfo.totalSize)
+    }
 
 
     /**
      * 获取任务详情
      */
+    fun aTaskInfo(uuid: String): Any {
+
+        val taskQuery = queryUtils.buildQueryInclude(
+                Criteria("uuid").`is`(uuid),
+                arrayListOf("uuid", "type", "remark", "status", "money", "moneyType", "messageMoney", "messageMoneyType", "merchantUUID")
+        )
+        val info = mongoTemplate.findOne(taskQuery, TaskEntity::class.java)
+        val item = utils.copy(info, TaskResponse::class.java)
+        val merchantQuery = queryUtils.buildQueryExclude(
+                Criteria("uuid").`is`(info.merchantUUID),
+                arrayListOf("id", "status", "remark", "logicDel", "createUserUUID")
+        )
+        item.merchant = mongoTemplate.findOne(merchantQuery, MerchantEntity::class.java)
+        return item
+    }
+
+
+    /**
+     * 做任务
+     *
+     * @param user              操作用户
+     * @param uuid              任务uuid
+     * @param items             维护项目
+     * @param messageMoney      通讯费
+     * @param messageMoneyType  通讯费类型
+     * @param money             机具押金
+     * @param moneyType         机具押金类型
+     * @param remark            任务补充说明
+     * @param images            相关图片
+     */
+    fun doTask(user: User,
+               uuid: String,
+               items: String?,
+               messageMoney: Double?,
+               messageMoneyType: String?,
+               money: Double?,
+               moneyType: String?,
+               remark: String?,
+               images: List<MultipartFile>?
+    ) {
+        val taskQuery = queryUtils.buildQuery(Criteria("uuid").`is`(uuid))
+        val info = mongoTemplate.findOne(taskQuery, TaskEntity::class.java) ?: throw AppException("数据有误")
+
+        if (!items.isNullOrEmpty()) info.items = items!!.split(",")
+        if (messageMoney != null && messageMoney > 0) info.messageMoney = messageMoney
+        if (!messageMoneyType.isNullOrEmpty()) info.messageMoneyType = messageMoneyType
+        if (money != null && money > 0) info.money = money
+        if (!moneyType.isNullOrEmpty()) info.moneyType = moneyType
+        if (!remark.isNullOrEmpty()) info.remark = "${info.remark} $remark"
+        if (images != null && images.isNotEmpty()) {
+            info.images = images.map {
+                val fileName = it.originalFilename
+                val suffix = fileName.substringAfterLast(".")
+                val currentTimeMillis = System.currentTimeMillis()
+                val imageFile = File("$imagePath$currentTimeMillis.$suffix")
+
+                val outStream = FileOutputStream(imageFile)
+                outStream.write(it.bytes)
+                outStream.close()
+                "$imageBaseUrl$imagePath$currentTimeMillis.$suffix"
+            }
+        }
+        mongoTemplate.save(info)
+    }
 }

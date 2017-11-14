@@ -1,6 +1,7 @@
 package com.shun.service
 
 import com.shun.commons.ApiUtils
+import com.shun.commons.exception.AppException
 import com.shun.entity.*
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
@@ -126,12 +127,14 @@ class NoteService {
 
         val readNoteUUID = mongoTemplate.findOne(Query.query(Criteria("userUUID").`is`(user.uuid)), NoteReaded::class.java)
         when (isRead) {
-            1 -> criteria.and("uuid").`in`(readNoteUUID.noteUUID)
-            else -> criteria.and("uuid").nin(readNoteUUID.noteUUID)
+            1 -> {
+                if (readNoteUUID != null) criteria.and("uuid").`in`(readNoteUUID.noteUUID)
+            }
+            else -> if (readNoteUUID != null) criteria.and("uuid").nin(readNoteUUID.noteUUID)
         }
 
         val query = Query.query(criteria)
-        query.fields().exclude("id").exclude("isDel")
+        query.fields().exclude("id").exclude("logicDel")
 
         return queryPage(query, params)
     }
@@ -149,6 +152,8 @@ class NoteService {
         query.fields().exclude("id").exclude("logicDel")
 
         val note = mongoTemplate.findOne(query, NoteEntity::class.java)
+        val noteResponse = utils.copy(note, NoteResponse::class.java)
+        noteResponse.createUser = userService.findByUUID(note.createUserUUID)
 
         if (note != null) {
             val readNote = mongoTemplate.findOne(Query.query(Criteria("userUUID").`is`(user.uuid)), NoteReaded::class.java)
@@ -166,7 +171,7 @@ class NoteService {
                 mongoTemplate.insert(noteEntity)
             }
         }
-        return note
+        return noteResponse
     }
 
 
@@ -179,15 +184,21 @@ class NoteService {
      * @param urgency 是否紧急
      * @param images 公告图片
      */
-    fun appCreateNote(user: User, title: String, content: String, urgency: Int, images: List<MultipartFile>?) {
+    fun appNoteCreate(user: User, title: String, content: String, urgency: Int, images: List<MultipartFile>?) {
         val entity = NoteEntity()
+        entity.uuid = UUID.randomUUID().toString()
+
+        if (title.isEmpty()) throw AppException("公告标题不能为空")
+        if (content.isEmpty()) throw AppException("公告内容不能为空")
         entity.title = title
         entity.content = content
         entity.logicDel = 0
         entity.status = 1
         entity.urgency = urgency
+        entity.createTime = Date()
+        entity.createUserUUID = user.uuid
 
-        entity.images = images?.map {
+        if (images != null && images.isNotEmpty()) entity.images = images.map {
             val fileName = it.originalFilename
             val suffix = fileName.substringAfterLast(".")
             val currentTimeMillis = System.currentTimeMillis()
@@ -198,6 +209,8 @@ class NoteService {
             outStream.close()
             "$imageBaseUrl$imagePath$currentTimeMillis.$suffix"
         }
+
+        mongoTemplate.insert(entity)
     }
 
 

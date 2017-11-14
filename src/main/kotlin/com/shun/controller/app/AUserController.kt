@@ -33,6 +33,23 @@ class AUserController {
         )
     }
 
+    @PostMapping("/modifyPassword")
+    fun modifyPassword(
+            @RequestBody requestParams: Map<String, String>
+    ): Any {
+        val mobile = requestParams["mobile"]
+        val code = requestParams["code"]
+        val password = requestParams["password"]
+        if (mobile.isNullOrEmpty()) throw AppException("手机号不能为空")
+        if (code.isNullOrEmpty()) throw AppException("验证码不能为空")
+        if (password.isNullOrEmpty()) throw AppException("密码不能为空")
+        return mapOf(
+                "code" to "success",
+                "message" to "修改密码成功",
+                "data" to userService.modifyPassword(mobile!!, code!!, password!!)
+        )
+    }
+
     @GetMapping("/superStar")
     fun superStar(): Any {
         return mapOf(

@@ -29,4 +29,5 @@ class ApiUtils {
     fun md5(str: String): String {
         return DigestUtils.md5DigestAsHex(str.toByteArray())!!
     }
+
 }

@@ -147,7 +147,7 @@ class UserService {
     fun appLogin(username: String, password: String): String {
         val user = mongoTemplate.findOne(Query.query(Criteria("username").`is`(username).and("status").`is`(1)), UserEntity::class.java) ?: throw AppException("用户不存在")
 
-        if (user.type == null || user.type!!.filter { it != 1 }.isEmpty()) throw AppException("用户类型错误")
+        if (user.type == null || user.type!!.none { it != 1 }) throw AppException("用户类型错误")
         if (!passwordEncoder.matches(password, user.password)) throw AppException("用户名或密码错误")
 
         val token = UUID.randomUUID().toString()
@@ -156,6 +156,19 @@ class UserService {
 
         return token
     }
+
+    /**
+     *
+     */
+    fun modifyPassword(mobile: String, code: String, password: String) {
+        val user = mongoTemplate.findOne(Query.query(Criteria("mobile").`is`(mobile)), UserEntity::class.java) ?: throw AppException("用户不存在")
+
+        // 验证code
+
+        user.password = passwordEncoder.encode(password)
+        mongoTemplate.save(user)
+    }
+
 
     /**
      * 获取明星员工
