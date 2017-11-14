@@ -87,7 +87,7 @@ class QueryUtils {
         return if (page != null && size != null) {
             val totalSize = mongoTemplate.count(query, target)
             val totalPage = Math.ceil((totalSize / size.toDouble())).toInt()
-            val resp = mongoTemplate.find(query, target)
+            val resp = mongoTemplate.find(query.skip(page - 1).limit(size), target)
 
             Page(resp, page, size, totalPage, totalSize)
         } else {

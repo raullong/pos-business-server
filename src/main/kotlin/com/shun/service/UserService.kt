@@ -1,12 +1,16 @@
 package com.shun.service
 
 import com.shun.commons.ApiUtils
+import com.shun.commons.QueryUtils
 import com.shun.commons.exception.AppException
 import com.shun.entity.*
+import jodd.datetime.JDateTime
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.data.domain.Sort
+import org.springframework.data.geo.Circle
 import org.springframework.data.mongodb.core.MongoTemplate
 import org.springframework.data.mongodb.core.query.Criteria
+import org.springframework.data.mongodb.core.query.NearQuery
 import org.springframework.data.mongodb.core.query.Query
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
 import org.springframework.stereotype.Service
@@ -27,6 +31,9 @@ class UserService {
     @Autowired
     private lateinit var utils: ApiUtils
 
+    @Autowired
+    private lateinit var queryUtils: QueryUtils
+
     //创建用户
     fun create(user: User) {
 
@@ -44,6 +51,7 @@ class UserService {
         entity.createTime = Date()
         entity.nickname = user.nickname ?: user.username
         entity.status = 1
+        entity.logicDel = 0
         entity.superStar = 0
 
         mongoTemplate.insert(entity)
@@ -174,14 +182,63 @@ class UserService {
      * 获取明星员工
      */
     fun superStar(): Any {
-        val query = Query.query(Criteria("status").`is`(1).and("superStar").`is`(1))
-        query.fields().exclude("id")
-                .exclude("createTime")
-                .exclude("lastTime")
-                .exclude("password")
-                .exclude("token")
-                .exclude("type")
+        val criteria = Criteria("status").`is`(1).and("superStar").`is`(1).and("logicDel").`is`(0)
+        val query = queryUtils.buildQueryExclude(
+                criteria,
+                arrayListOf("id", "createTime", "lastTime", "password", "token", "type", "logicDel")
+        )
         return mongoTemplate.find(query, UserEntity::class.java)
+    }
+
+
+    /**
+     * 用户位置上传
+     */
+    fun aCollectGps(user: User, gps: Gps) {
+        val location = utils.copy(gps, Location::class.java)
+        user.position = location
+        mongoTemplate.save(user)
+
+        gps.createTime = JDateTime().toString("YYYY-MM-DD hh:mm:ss")
+        gps.status = 1
+        mongoTemplate.insert(gps)
+    }
+
+
+    /**
+     * 获取用户某段时间的位置坐标数据
+     */
+    fun aGpsList(user: User, requestParams: Map<String, String>): Any {
+        val beginTime = requestParams["beginTime"] ?: "${JDateTime().toString("YYYY-MM-DD")} 00:00:00"
+        val endTime = requestParams["endTime"] ?: "${JDateTime().toString("YYYY-MM-DD")} 23:59:59"
+        val page = requestParams["page"]
+        val size = requestParams["size"]
+
+        val criteria = Criteria("status").`is`(1).and("userUUID").`is`(user.uuid)
+
+        criteria.andOperator(Criteria("createTime").gte(beginTime), Criteria("createTime").lte(endTime))
+
+        if (!page.isNullOrEmpty() && !size.isNullOrEmpty()) {
+            return queryUtils.queryObject(
+                    criteria,
+                    null,
+                    arrayListOf("id", "status", "userUUID", "uuid"),
+                    null,
+                    arrayListOf("createTime"),
+                    page.toString().toInt(),
+                    size.toString().toInt(),
+                    Gps::class.java
+            )
+        } else {
+            val query = queryUtils.buildQuery(
+                    criteria,
+                    null,
+                    arrayListOf("id", "status", "userUUID", "uuid"),
+                    null,
+                    arrayListOf("createTime")
+            )
+            return mongoTemplate.find(query, Gps::class.java)
+        }
     }
 
 
@@ -189,7 +246,14 @@ class UserService {
      * 获取附近的同事
      */
     fun nearUser(user: User) {
+        val location = user.position
+        if (location != null) {
+            val circle = Circle(location.lat!!, location.lng!!, 10.0)
 
+            val nearQuery = NearQuery.near(location.lat!!, location.lng!!)
+
+            mongoTemplate.geoNear(nearQuery, UserEntity::class.java)
+        }
     }
 
 

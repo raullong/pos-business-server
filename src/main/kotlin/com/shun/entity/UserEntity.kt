@@ -16,4 +16,7 @@ class UserEntity : User() {
 
     // 用户token
     var token: String? = null
+
+    // 逻辑删除，1：已删除、 0：未删除
+    var logicDel: Int? = null
 }

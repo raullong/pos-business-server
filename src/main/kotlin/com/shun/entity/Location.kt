@@ -1,8 +1,5 @@
 package com.shun.entity
 
-import com.shun.commons.IDEntity
-import java.util.*
-
 /**
  * Created by alwaysbe on 2017/10/26.
  *
@@ -10,13 +7,7 @@ import java.util.*
  *
  * 位置信息
  */
-class Location : IDEntity() {
-
-    // 唯一标识
-    var uuid: String? = null
-
-    // 名称
-    var name: String? = null
+open class Location {
 
     // 纬度
     var lat: Double? = null
@@ -24,18 +15,7 @@ class Location : IDEntity() {
     // 经度
     var lng: Double? = null
 
-    // 定位类型：GPS、WIFI、4g
-    var locType: String? = null
-
-    // 精度
-    var accuracy: String? = null
-
     // 地址
     var address: String? = null
 
-    // 创建时间
-    var createTime: Date? = null
-
-    // 状态
-    var status: Int? = null
 }

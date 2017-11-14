@@ -1,6 +1,9 @@
 package com.shun.controller.app
 
+import com.shun.commons.NeedAuth
 import com.shun.commons.exception.AppException
+import com.shun.entity.Gps
+import com.shun.entity.User
 import com.shun.service.UserService
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.web.bind.annotation.*
@@ -56,6 +59,34 @@ class AUserController {
                 "code" to "success",
                 "message" to "获取明星员工信息列表成功",
                 "data" to userService.superStar()
+        )
+    }
+
+
+    @NeedAuth
+    @PostMapping("/gps/collect")
+    fun aCollectGps(
+            @RequestAttribute(name = "user") user: User,
+            @RequestBody gps: Gps
+    ): Any {
+        return mapOf(
+                "code" to "success",
+                "message" to "用户位置上传成功",
+                "data" to userService.aCollectGps(user, gps)
+        )
+    }
+
+
+    @NeedAuth
+    @GetMapping("/gps/list")
+    fun aGpsList(
+            @RequestAttribute(name = "user") user: User,
+            @RequestParam requestParams: Map<String, String>
+    ): Any {
+        return mapOf(
+                "code" to "success",
+                "message" to "获取用户位置信息列表成功",
+                "data" to userService.aGpsList(user, requestParams)
         )
     }
 }

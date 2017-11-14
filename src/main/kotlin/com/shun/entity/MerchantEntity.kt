@@ -16,4 +16,7 @@ class MerchantEntity : Merchant() {
 
     // 创建用户uuid
     var createUserUUID: String? = null
+
+    // 逻辑删除，1：已删除、 0：未删除
+    var logicDel: Int? = null
 }
