@@ -8,6 +8,8 @@ import jodd.datetime.JDateTime
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.data.domain.Sort
 import org.springframework.data.geo.Circle
+import org.springframework.data.geo.Metrics
+import org.springframework.data.geo.Point
 import org.springframework.data.mongodb.core.MongoTemplate
 import org.springframework.data.mongodb.core.query.Criteria
 import org.springframework.data.mongodb.core.query.NearQuery
@@ -15,6 +17,7 @@ import org.springframework.data.mongodb.core.query.Query
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
 import org.springframework.stereotype.Service
 import java.util.*
+
 
 /**
  * Created by Administrator on 2017/8/12.
@@ -139,6 +142,10 @@ class UserService {
         return user
     }
 
+    fun mapList(): List<UserEntity> {
+        return mongoTemplate.find(Query.query(Criteria("logicDel").`is`(0).and("status").`is`(1)), UserEntity::class.java)
+    }
+
 
     /**
      * APP端相关应用接口
@@ -195,13 +202,19 @@ class UserService {
      * 用户位置上传
      */
     fun aCollectGps(user: User, gps: Gps) {
-        val location = utils.copy(gps, Location::class.java)
-        user.position = location
+        val position = Position()
+        val coordinate = gps.coordinate
+        position.coordinates = arrayListOf(coordinate!!.lng!!, coordinate.lat!!)
+        user.position = position
+        user.address = gps.address
         mongoTemplate.save(user)
 
-        gps.createTime = JDateTime().toString("YYYY-MM-DD hh:mm:ss")
-        gps.status = 1
-        mongoTemplate.insert(gps)
+        val entity = utils.copy(gps, GpsEntity::class.java)
+
+        entity.userUUID = user.uuid
+        entity.createTime = JDateTime().toString("YYYY-MM-DD hh:mm:ss")
+        entity.status = 1
+        mongoTemplate.insert(entity)
     }
 
 
@@ -227,7 +240,7 @@ class UserService {
                     arrayListOf("createTime"),
                     page.toString().toInt(),
                     size.toString().toInt(),
-                    Gps::class.java
+                    GpsEntity::class.java
             )
         } else {
             val query = queryUtils.buildQuery(
@@ -237,7 +250,7 @@ class UserService {
                     null,
                     arrayListOf("createTime")
             )
-            return mongoTemplate.find(query, Gps::class.java)
+            return mongoTemplate.find(query, GpsEntity::class.java)
         }
     }
 
@@ -245,14 +258,45 @@ class UserService {
     /**
      * 获取附近的同事
      */
-    fun nearUser(user: User) {
-        val location = user.position
-        if (location != null) {
-            val circle = Circle(location.lat!!, location.lng!!, 10.0)
+    fun nearUser(user: User): Any {
+        val position = user.position
+        if (position != null) {
+            val coordinates = position.coordinates
+            if (coordinates != null) {
+                val point = Point(coordinates[0], coordinates[1])
+                val radius = 2 / 111.0 // 半径2公里
+                return mongoTemplate.find(Query.query(Criteria.where("position").within(Circle(point, radius))), UserEntity::class.java)
+            }
+        }
+        return ""
+    }
 
-            val nearQuery = NearQuery.near(location.lat!!, location.lng!!)
 
-            mongoTemplate.geoNear(nearQuery, UserEntity::class.java)
+    /**
+     * 通过坐标计算两用户之间的距离
+     */
+    fun queryDistance(user: User): Any {
+        val position = user.position
+        val coordinates = position!!.coordinates
+        val point = Point(coordinates!![0], coordinates[1])
+
+        val criteria = Criteria("uuid").ne(user.uuid)
+        val query = Query(criteria)
+        query.fields().include("uuid").include("username").include("mobile").include("nickname").include("position")
+        val nearQuery = NearQuery.near(point, Metrics.KILOMETERS).query(query)
+        val geoResults = mongoTemplate.geoNear(nearQuery, UserEntity::class.java)
+
+        return geoResults.content.map {
+            mapOf(
+                    "userInfo" to mapOf(
+                            "uuid" to it.content.uuid,
+                            "username" to it.content.username,
+                            "mobile" to it.content.mobile,
+                            "nickname" to it.content.nickname,
+                            "position" to it.content.position
+                    ),
+                    "distance" to Formatter().format("%.2f", it.distance.value).toString()
+            )
         }
     }
 

@@ -1,6 +1,6 @@
 package com.shun.controller.app
 
-import com.shun.entity.Location
+import com.shun.entity.Gps
 import com.shun.service.MerchantService
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.web.bind.annotation.*
@@ -21,12 +21,12 @@ class AMerchantController {
     @PostMapping("/collect/{uuid}")
     fun collectLocation(
             @PathVariable(name = "uuid") uuid: String,
-            @RequestBody location: Location
+            @RequestBody gps: Gps
     ): Any {
         return mapOf(
                 "code" to "success",
                 "message" to "商户位置采集成功",
-                "data" to service.aCollectLocation(uuid, location)
+                "data" to service.aCollectLocation(uuid, gps)
         )
     }
 

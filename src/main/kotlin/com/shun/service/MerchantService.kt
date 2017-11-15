@@ -90,8 +90,8 @@ class MerchantService {
 
         if (!merchant.name.isNullOrEmpty()) item.name = merchant.name
         if (!merchant.code.isNullOrEmpty()) item.code = merchant.code
-        if (!merchant.address.isNullOrEmpty()) item.address = merchant.address
         if (merchant.locationInfo != null) item.locationInfo = merchant.locationInfo
+        if (!merchant.address.isNullOrEmpty()) item.address = merchant.address
         if (merchant.status != null) item.status = merchant.status
         if (!merchant.remark.isNullOrEmpty()) item.remark = merchant.remark
         if (merchant.images != null && merchant.images!!.isNotEmpty()) item.images = merchant.images
@@ -122,13 +122,16 @@ class MerchantService {
     /**
      * 商户位置采集
      */
-    fun aCollectLocation(uuid: String, location: Location) {
+    fun aCollectLocation(uuid: String, gps: Gps) {
 
         val merchantQuery = queryUtils.buildQuery(Criteria("uuid").`is`(uuid))
         val merchant = mongoTemplate.findOne(merchantQuery, MerchantEntity::class.java)
         if (merchant != null) {
-            merchant.locationInfo = location
-            if (!location.address.isNullOrEmpty()) merchant.address = location.address
+            val position = Position()
+            val coordinate = gps.coordinate
+            position.coordinates = arrayListOf(coordinate!!.lng!!, coordinate.lat!!)
+            merchant.locationInfo = position
+            merchant.address = gps.address
         }
         mongoTemplate.save(merchant)
     }

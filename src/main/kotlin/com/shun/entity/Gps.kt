@@ -1,20 +1,10 @@
 package com.shun.entity
 
-import org.springframework.data.annotation.Id
-import org.springframework.data.mongodb.core.mapping.Document
-
 /**
  * Created by rainbow on 2017/4/26.
  *一事专注，便是动人；一生坚守，便是深邃！
  */
-@Document(collection = "gps")
-class Gps : Location() {
-
-    @Id
-    val id: String? = null
-
-    // 用户uuid
-    var userUUID: String? = null
+open class Gps {
 
     // 名称
     var name: String? = null
@@ -25,10 +15,10 @@ class Gps : Location() {
     // 精度
     var accuracy: Double? = null
 
-    // 创建时间
-    var createTime: String? = null
+    // 坐标
+    var coordinate: Coordinate? = null
 
-    // 状态
-    var status: Int? = null
+    // 地址
+    var address: String? = null
 
 }

@@ -1,7 +1,7 @@
 package com.shun.controller.app
 
 import com.shun.commons.NeedAuth
-import com.shun.entity.Location
+import com.shun.entity.Gps
 import com.shun.entity.User
 import com.shun.service.SignService
 import org.springframework.beans.factory.annotation.Autowired
@@ -23,12 +23,12 @@ class ASignController {
     @PostMapping()
     fun aSign(
             @RequestAttribute(name = "user") user: User,
-            @RequestBody position: Location
+            @RequestBody gps: Gps
     ): Any {
         return mapOf(
                 "code" to "success",
                 "message" to "签到成功",
-                "data" to signService.aSign(user, position)
+                "data" to signService.aSign(user, gps)
         )
     }
 }

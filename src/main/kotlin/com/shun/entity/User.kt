@@ -41,8 +41,10 @@ open class User {
     // 最后一次更新时间
     var lastTime: Date? = null
 
-    // 位置信息
-    var position: Location? = null
+    // 位置坐标信息
+    var position: Position? = null
+
+    var address: String? = null
 
     // 是否明星员工， 1：是、0：否
     var superStar: Int? = null

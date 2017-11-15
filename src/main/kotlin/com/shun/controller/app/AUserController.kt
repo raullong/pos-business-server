@@ -89,4 +89,17 @@ class AUserController {
                 "data" to userService.aGpsList(user, requestParams)
         )
     }
+
+
+    @NeedAuth
+    @GetMapping("/near")
+    fun nearUser(
+            @RequestAttribute(name = "user") user: User
+    ): Any {
+        return mapOf(
+                "code" to "success",
+                "message" to "获取附近用户列表成功",
+                "data" to userService.queryDistance(user)
+        )
+    }
 }

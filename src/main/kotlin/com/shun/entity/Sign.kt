@@ -15,7 +15,10 @@ open class Sign {
     var time: String? = null
 
     // 签到位置信息
-    var position: Location? = null
+    var position: Coordinate? = null
+
+    // 地址
+    var address: String? = null
 
     var status: Int? = null
 }

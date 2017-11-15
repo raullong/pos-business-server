@@ -41,4 +41,9 @@ class UserController {
 
     @GetMapping("/remote/{name}")
     fun remote(@PathVariable(name = "name") name: String) = userService.remote(name)
+
+
+    @NeedAuth
+    @GetMapping("/mapList")
+    fun mapList() = userService.mapList()
 }

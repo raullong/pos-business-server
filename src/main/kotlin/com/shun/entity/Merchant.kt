@@ -24,7 +24,7 @@ open class Merchant {
     var address: String? = null
 
     // 商户坐标信息
-    var locationInfo: Location? = null
+    var locationInfo: Position? = null
 
     // 商户状态
     var status: Int? = null
