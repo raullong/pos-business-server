@@ -9,4 +9,9 @@ class UserResponse : User() {
 
     // 用户类型
     var userType: String? = null
+
+    // 位置坐标信息
+    var position: Position? = null
+
+    var address: String? = null
 }

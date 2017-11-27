@@ -91,6 +91,11 @@ class UserService {
         val list = resp.map {
             val temp = utils.copy(it, UserResponse::class.java)
             temp.userType = mongoTemplate.find(Query.query(Criteria("key").`in`(it.type)), UserTypeEntity::class.java).joinToString { it.value!! }
+            val position = mongoTemplate.findOne(Query.query(Criteria("userUUID").`is`(it.uuid)), UserPosition::class.java)
+            if (position != null) {
+                temp.address = position.address
+                temp.position = position.position
+            }
             temp
         }
 
@@ -142,8 +147,23 @@ class UserService {
         return user
     }
 
-    fun mapList(): List<UserEntity> {
-        return mongoTemplate.find(Query.query(Criteria("logicDel").`is`(0).and("status").`is`(1)), UserEntity::class.java)
+    fun mapList(): List<UserResponse> {
+        val resp = mongoTemplate.find(Query.query(Criteria("logicDel").`is`(0).and("status").`is`(1)), UserEntity::class.java)
+
+        val list = mutableListOf<UserResponse>()
+
+        resp.forEach {
+            val temp = utils.copy(it, UserResponse::class.java)
+            temp.userType = mongoTemplate.find(Query.query(Criteria("key").`in`(it.type)), UserTypeEntity::class.java).joinToString { it.value!! }
+            val position = mongoTemplate.findOne(Query.query(Criteria("userUUID").`is`(it.uuid)), UserPosition::class.java)
+            if (position != null) {
+                temp.address = position.address
+                temp.position = position.position
+
+                list.add(temp)
+            }
+        }
+        return list
     }
 
 
@@ -202,12 +222,18 @@ class UserService {
      * 用户位置上传
      */
     fun aCollectGps(user: User, gps: Gps) {
+
+        val uPosition = mongoTemplate.findOne(Query.query(Criteria("userUUID").`is`(user.uuid)), UserPosition::class.java) ?: UserPosition()
+
         val position = Position()
         val coordinate = gps.coordinate
         position.coordinates = arrayListOf(coordinate!!.lng!!, coordinate.lat!!)
-        user.position = position
-        user.address = gps.address
-        mongoTemplate.save(user)
+        uPosition.position = position
+        uPosition.address = gps.address
+        uPosition.userUUID = user.uuid
+        uPosition.createTime = Date()
+
+        mongoTemplate.save(uPosition)
 
         val entity = utils.copy(gps, GpsEntity::class.java)
 
@@ -259,7 +285,8 @@ class UserService {
      * 获取附近的同事
      */
     fun nearUser(user: User): Any {
-        val position = user.position
+        val uPosition = mongoTemplate.findOne(Query.query(Criteria("userUUID").`is`(user.uuid)), UserPosition::class.java)
+        val position = uPosition.position
         if (position != null) {
             val coordinates = position.coordinates
             if (coordinates != null) {
@@ -276,28 +303,43 @@ class UserService {
      * 通过坐标计算两用户之间的距离
      */
     fun queryDistance(user: User): Any {
-        val position = user.position
+        val uPosition = mongoTemplate.findOne(Query.query(Criteria("userUUID").`is`(user.uuid)), UserPosition::class.java)
+        val position = uPosition.position
         val coordinates = position!!.coordinates
         val point = Point(coordinates!![0], coordinates[1])
 
-        val criteria = Criteria("uuid").ne(user.uuid)
+        val criteria = Criteria("userUUID").ne(user.uuid)
         val query = Query(criteria)
-        query.fields().include("uuid").include("username").include("mobile").include("nickname").include("position")
+        query.fields().exclude("id").exclude("createTime")
         val nearQuery = NearQuery.near(point, Metrics.KILOMETERS).query(query)
-        val geoResults = mongoTemplate.geoNear(nearQuery, UserEntity::class.java)
+        val geoResults = mongoTemplate.geoNear(nearQuery, UserPosition::class.java)
 
         return geoResults.content.map {
+            val item = mongoTemplate.findOne(Query.query(Criteria("uuid").`is`(it.content.userUUID)), UserEntity::class.java)
             mapOf(
                     "userInfo" to mapOf(
-                            "uuid" to it.content.uuid,
-                            "username" to it.content.username,
-                            "mobile" to it.content.mobile,
-                            "nickname" to it.content.nickname,
+                            "uuid" to item.uuid,
+                            "username" to item.username,
+                            "mobile" to item.mobile,
+                            "nickname" to item.nickname,
                             "position" to it.content.position
                     ),
                     "distance" to Formatter().format("%.2f", it.distance.value).toString()
             )
         }
+    }
+
+    /**
+     * 获取用户详情
+     */
+    fun aUserInfo(uuid: String): Any {
+        val criteria = Criteria("uuid").`is`(uuid)
+
+        val query = queryUtils.buildQueryExclude(
+                criteria,
+                arrayListOf("id", "status", "type", "password", "createTime", "lastTime", "token", "logicDel")
+        )
+        return mongoTemplate.findOne(query, UserEntity::class.java)
     }
 
 

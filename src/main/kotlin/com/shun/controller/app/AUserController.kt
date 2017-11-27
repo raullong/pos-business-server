@@ -102,4 +102,16 @@ class AUserController {
                 "data" to userService.queryDistance(user)
         )
     }
+
+
+    @PostMapping("/info/{uuid}")
+    fun aUserInfo(
+            @PathVariable(name = "uuid") uuid: String
+    ): Any {
+        return mapOf(
+                "code" to "success",
+                "message" to "获取用户详情成功",
+                "data" to userService.aUserInfo(uuid)
+        )
+    }
 }
