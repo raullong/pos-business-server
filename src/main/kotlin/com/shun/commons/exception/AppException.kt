@@ -13,6 +13,7 @@ open class AppException(override val message: String) : Throwable(message) {
     companion object {
         fun parse(ex: Throwable): AppException {
             if (ex is AppException) return ex
+            if (ex is TokenException) return ex
             if (ex is IllegalArgumentException) return AppException("参数不正确[${ex.message}]")
             if (ex is HttpRequestMethodNotSupportedException) return AppException("HTTP请求方法错误[${ex.message}]")
             if (ex is UndeclaredThrowableException) return parse(ex.undeclaredThrowable)

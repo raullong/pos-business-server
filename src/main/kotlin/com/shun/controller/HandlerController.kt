@@ -19,6 +19,7 @@ class HandlerController {
 
     @ExceptionHandler
     fun handler(ex: Exception): ResponseEntity<Any> {
+
         val parseError = AppException.parse(ex)
         val body = mapOf(
                 "code" to "failure",

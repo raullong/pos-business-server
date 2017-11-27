@@ -37,6 +37,9 @@ class UserService {
     @Autowired
     private lateinit var queryUtils: QueryUtils
 
+    @Autowired
+    private lateinit var easeService: EaseService
+
     //创建用户
     fun create(user: User) {
 
@@ -59,6 +62,9 @@ class UserService {
 
         mongoTemplate.insert(entity)
 
+        val easeInfo = easeService.integrationUser(user.username!!, user.password ?: "123456")
+        easeInfo.userUUID = entity.uuid
+        mongoTemplate.insert(easeInfo)
     }
 
     fun types(): List<UserTypeEntity> {

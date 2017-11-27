@@ -2,6 +2,8 @@ package com.shun.service
 
 import com.shun.commons.ApiUtils
 import com.shun.commons.exception.AppException
+import com.shun.entity.Ease
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
@@ -15,6 +17,8 @@ import org.springframework.stereotype.Service
  */
 @Service
 class EaseService {
+
+    private val logger by lazy { LoggerFactory.getLogger(EaseService::class.java) }
 
     @Value("\${ease.uri}")
     private lateinit var easeUrl: String
@@ -45,11 +49,47 @@ class EaseService {
                     "grant_type" to "client_credentials",
                     "client_id" to easeClientID,
                     "client_secret" to easeClientSecret
-            ), "$easeUrl/$easeOrgName/$easeAppName/token", Map::class.java)
+            ), "$easeUrl/$easeOrgName/$easeAppName/token", null, Map::class.java)
 
             return if (resp["access_token"] != null) resp["access_token"]!! else ""
         } catch (e: Exception) {
-            throw AppException("环信平台获取token失")
+            throw AppException("环信平台获取token失败")
+        }
+    }
+
+    /**
+     * 注册用户
+     */
+    fun integrationUser(username: String, password: String): Ease {
+        try {
+
+            val accessToken = accessToken()
+
+            val resp = utils.post(mapOf(), mapOf(
+                    "username" to username,
+                    "password" to password
+            ), "$easeUrl/$easeOrgName/$easeAppName/users", mapOf("Authorization" to "Bearer $accessToken"), Map::class.java)
+
+
+            val entities = resp["entities"] as List<*>
+            if (entities.isNotEmpty()) {
+                val entity = entities[0] as Map<*, *>
+
+                val easeInfo = Ease()
+                easeInfo.uuid = entity["uuid"]?.toString()
+                easeInfo.type = entity["type"]?.toString()
+                easeInfo.username = username
+                easeInfo.activated = entity["activated"] as Boolean
+                easeInfo.duration = resp["duration"]?.toString()?.toInt()
+                easeInfo.organization = resp["organization"]?.toString()
+                easeInfo.applicationName = resp["applicationName"]?.toString()
+
+                return easeInfo
+            } else {
+                throw AppException("环信平台用户注册失败")
+            }
+        } catch (e: Exception) {
+            throw AppException("环信平台用户注册失败")
         }
     }
 }

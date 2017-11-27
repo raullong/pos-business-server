@@ -3,10 +3,14 @@ package com.shun.commons
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import org.springframework.beans.BeanUtils
 import org.springframework.boot.web.client.RestTemplateBuilder
+import org.springframework.http.HttpHeaders
+import org.springframework.http.HttpMethod
+import org.springframework.http.RequestEntity
 import org.springframework.http.converter.StringHttpMessageConverter
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter
 import org.springframework.stereotype.Component
 import org.springframework.util.DigestUtils
+import java.net.URI
 import java.text.SimpleDateFormat
 
 /**
@@ -21,12 +25,6 @@ class ApiUtils {
                 StringHttpMessageConverter(Charsets.UTF_8),
                 MappingJackson2HttpMessageConverter()
         ).build()!!
-    }
-
-    fun buildUri(url: String, params: Map<String, Any?> = emptyMap()): String {
-        val query = params.filterValues { it != null }.map { "${it.key}=${it.value}" }.joinToString("&")
-        val sep = if (url.contains("?")) "&" else "?"
-        return "$url$sep$query"
     }
 
 
@@ -46,8 +44,25 @@ class ApiUtils {
         return DigestUtils.md5DigestAsHex(str.toByteArray())!!
     }
 
-    fun <T> post(urlParams: Map<String, Any?>, body: Any?, url: String, responseType: Class<T>): T {
-        return restTemplate.postForObject(buildUri(url, urlParams), body, responseType)
+
+    fun <T> post(urlParams: Map<String, Any?>, params: Map<String, Any?>, url: String, headers: Map<String, String>?, responseType: Class<T>): T {
+        val header = HttpHeaders()
+        headers?.forEach {
+            header.set(it.key, it.value)
+        }
+        val entity = genEntity(params, header, HttpMethod.POST, buildUri(url, urlParams))
+        return restTemplate.exchange(entity, responseType).body
+    }
+
+    fun buildUri(url: String, params: Map<String, Any?> = emptyMap()): String {
+        val query = params.filterValues { it != null }.map { "${it.key}=${it.value}" }.joinToString("&")
+        val sep = if (url.contains("?")) "&" else "?"
+        return "$url$sep$query"
+    }
+
+
+    private fun <T> genEntity(body: T, headers: HttpHeaders, method: HttpMethod, url: String): RequestEntity<T> {
+        return RequestEntity(body, headers, method, URI(url))
     }
 
 }
