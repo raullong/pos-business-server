@@ -45,6 +45,17 @@ class ApiUtils {
     }
 
 
+    fun <T> get(urlParams: Map<String, Any?>, url: String, headers: Map<String, String>?, responseType: Class<T>): T {
+        val header = HttpHeaders()
+        headers?.forEach {
+            header.set(it.key, it.value)
+        }
+
+        val entity = genEntity(null, header, HttpMethod.GET, buildUri(url, urlParams))
+        return restTemplate.exchange(entity, responseType).body
+    }
+
+
     fun <T> post(urlParams: Map<String, Any?>, params: Map<String, Any?>, url: String, headers: Map<String, String>?, responseType: Class<T>): T {
         val header = HttpHeaders()
         headers?.forEach {

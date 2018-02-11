@@ -191,6 +191,9 @@ class UserService {
         if (user.type == null || user.type!!.none { it != 1 }) throw AppException("用户类型错误")
         if (!passwordEncoder.matches(password, user.password)) throw AppException("用户名或密码错误")
 
+        // 强制用户在环信平台下线
+        easeService.disconnectUser(user.uuid!!)
+
         val token = UUID.randomUUID().toString()
         user.token = token
         mongoTemplate.save(user)

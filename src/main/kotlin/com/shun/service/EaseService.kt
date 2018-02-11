@@ -6,6 +6,9 @@ import com.shun.entity.Ease
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.data.mongodb.core.MongoTemplate
+import org.springframework.data.mongodb.core.query.Criteria
+import org.springframework.data.mongodb.core.query.Query
 import org.springframework.stereotype.Service
 
 /**
@@ -37,6 +40,9 @@ class EaseService {
 
     @Autowired
     private lateinit var utils: ApiUtils
+
+    @Autowired
+    private lateinit var mongo: MongoTemplate
 
 
     /**
@@ -90,6 +96,36 @@ class EaseService {
             }
         } catch (e: Exception) {
             throw AppException("环信平台用户注册失败")
+        }
+    }
+
+
+    /**
+     * 强制用户下线
+     */
+    fun disconnectUser(userUUID: String) {
+        try {
+
+            val ease = mongo.findOne(Query.query(Criteria("userUUID").`is`(userUUID)), Ease::class.java)
+
+            val accessToken = accessToken()
+
+            val resp = utils.get(
+                    mapOf(),
+                    "$easeUrl/$easeOrgName/$easeAppName/users/${ease.username}/disconnect",
+                    mapOf("Authorization" to "Bearer $accessToken"),
+                    Map::class.java
+            )
+
+            val data = resp["data"] as Map<*, *>
+            if (data["result"].toString().toBoolean()) {
+                logger.info("环信平台强制用户${ease.username}下线成功")
+            } else {
+                logger.info("环信平台强制用户${ease.username}下线失败")
+            }
+
+        } catch (e: Exception) {
+            throw AppException("环信平台强制用户下线失败")
         }
     }
 }
