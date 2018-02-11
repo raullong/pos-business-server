@@ -104,10 +104,9 @@ class EaseService {
      * 强制用户下线
      */
     fun disconnectUser(userUUID: String) {
-        try {
+        val ease = mongo.findOne(Query.query(Criteria("userUUID").`is`(userUUID)), Ease::class.java)
 
-            val ease = mongo.findOne(Query.query(Criteria("userUUID").`is`(userUUID)), Ease::class.java)
-
+        if (ease != null) {
             val accessToken = accessToken()
 
             val resp = utils.get(
@@ -124,8 +123,6 @@ class EaseService {
                 logger.info("环信平台强制用户${ease.username}下线失败")
             }
 
-        } catch (e: Exception) {
-            throw AppException("环信平台强制用户下线失败")
         }
     }
 }
